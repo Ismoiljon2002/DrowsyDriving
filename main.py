@@ -2,17 +2,20 @@ import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import os
 import cv2
-
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Lambda, Dense, Flatten, Conv2D, MaxPooling2D, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.models import Sequential
+from keras.preprocessing.image import ImageDataGenerator
 
 labels = os.listdir("./train")
-
-print(labels)
 
 import matplotlib.pyplot as plt
 plt.imshow(plt.imread("./train/Closed/_0.jpg"))
 a = plt.imread("./train/yawn/10.jpg")
-print(a.shape)
+
 plt.imshow(plt.imread("./train/yawn/10.jpg"))
+
 
 
 # Function to crop the face and detect if yawning or not
@@ -76,20 +79,57 @@ for feature, label in new_data:
     X.append(feature)
     y.append(label)
 
-
+# Reshape the array
 X = np.array(X)
 X = X.reshape(-1, 145, 145, 3)
 
-
+# Label binarizer
 from sklearn.preprocessing import LabelBinarizer
 label_bin = LabelBinarizer()
 y = label_bin.fit_transform(y)
 
 y = np.array(y)
 
+# Train test split
 from sklearn.model_selection import train_test_split
 seed = 42
 test_size = 0.30
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=seed, test_size=test_size)
 
+print("x test")
 print(len(X_test))
+
+
+# Data augmentation
+train_generator = ImageDataGenerator(rescale=1/255, zoom_range=0.2, horizontal_flip=True, rotation_range=30)
+test_generator = ImageDataGenerator(rescale=1/255)
+
+train_generator = train_generator.flow(np.array(X_train), y_train, shuffle=False)
+test_generator = test_generator.flow(np.array(X_test), y_test, shuffle=False)
+
+
+# Model
+model = Sequential()
+
+model.add(Conv2D(256, (3, 3), activation="relu", input_shape=X_train.shape[1:]))
+model.add(MaxPooling2D(2, 2))
+
+model.add(Conv2D(128, (3, 3), activation="relu"))
+model.add(MaxPooling2D(2, 2))
+
+model.add(Conv2D(64, (3, 3), activation="relu"))
+model.add(MaxPooling2D(2, 2))
+
+model.add(Conv2D(32, (3, 3), activation="relu"))
+model.add(MaxPooling2D(2, 2))
+
+model.add(Flatten())
+model.add(Dropout(0.5))
+
+model.add(Dense(64, activation="relu"))
+model.add(Dense(4, activation="softmax"))
+
+model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer="adam")
+
+model.summary()
+
